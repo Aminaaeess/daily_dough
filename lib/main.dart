@@ -18,14 +18,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppColors {
   static const yellow = Color(0xFFFFD84D);
   static const yellowLight = Color(0xFFFFF4BF);
-  static const background = Color(0xFFFFFCF3);
 
-  static const text = Color(0xFF171717);
-  static const secondary = Color(0xFF8A8A8A);
-  static const white = Color(0xFFFFFFFF);
+  static const background = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFFFFCF3),
+    darkColor: Color(0xFF111111),
+  );
 
-  static const gray = Color(0xFFF3F3F3);
-  static const grayDark = Color(0xFFE4E4E4);
+  static const text = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFF171717),
+    darkColor: Color(0xFFF5F5F5),
+  );
+
+  static const secondary = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFF8A8A8A),
+    darkColor: Color(0xFFAAAAAA),
+  );
+
+  static const white = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFFFFFFF),
+    darkColor: Color(0xFF1C1C1E),
+  );
+
+  static const gray = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFF3F3F3),
+    darkColor: Color(0xFF2C2C2E),
+  );
+
+  static const grayDark = CupertinoDynamicColor.withBrightness(
+    color: Color(0xFFE4E4E4),
+    darkColor: Color(0xFF3A3A3C),
+  );
 
   static const red = Color(0xFFFF5C5C);
 }
@@ -99,21 +121,60 @@ void main() {
 }
 
 
-class DailyDoughApp extends StatelessWidget {
+class DailyDoughApp extends StatefulWidget {
   const DailyDoughApp({super.key});
 
   @override
+  State<DailyDoughApp> createState() => _DailyDoughAppState();
+}
+
+class _DailyDoughAppState extends State<DailyDoughApp> {
+  bool isDarkMode = false;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadTheme();
+  }
+
+  Future<void> loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      isDarkMode = prefs.getBool('dark_mode') ?? false;
+      isLoading = false;
+    });
+  }
+
+  Future<void> toggleTheme() async {
+    setState(() {
+      isDarkMode = !isDarkMode;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('dark_mode', isDarkMode);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const CupertinoApp(
+    if (isLoading) {
+      return const CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: Center(
+            child: CupertinoActivityIndicator(),
+          ),
+        ),
+      );
+    }
+
+    return CupertinoApp(
       debugShowCheckedModeBanner: false,
       title: 'Daily Dough',
-
       theme: CupertinoThemeData(
-        brightness: Brightness.light,
+        brightness: isDarkMode ? Brightness.dark : Brightness.light,
         primaryColor: AppColors.yellow,
-
         scaffoldBackgroundColor: AppColors.background,
-
         textTheme: CupertinoTextThemeData(
           textStyle: TextStyle(
             fontFamily: '.SF Pro Text',
@@ -121,8 +182,10 @@ class DailyDoughApp extends StatelessWidget {
           ),
         ),
       ),
-
-      home: MainNavigation(),
+      home: MainNavigation(
+        isDarkMode: isDarkMode,
+        onThemeChanged: toggleTheme,
+      ),
     );
   }
 }
@@ -133,22 +196,30 @@ class DailyDoughApp extends StatelessWidget {
 // ============================================================
 
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+  final bool isDarkMode;
+  final VoidCallback onThemeChanged;
+
+  const MainNavigation({
+    super.key,
+    required this.isDarkMode,
+    required this.onThemeChanged,
+  });
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
-
 class _MainNavigationState extends State<MainNavigation> {
-
   int selectedIndex = 0;
 
-  final List<Widget> pages = const [
-    TodayPage(),
-    CalendarPage(),
-    SettingsPage(),
-  ];
+  List<Widget> get pages => [
+        const TodayPage(),
+        const CalendarPage(),
+        SettingsPage(
+          isDarkMode: widget.isDarkMode,
+          onThemeChanged: widget.onThemeChanged,
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -181,12 +252,10 @@ class _MainNavigationState extends State<MainNavigation> {
             icon: Icon(CupertinoIcons.checkmark_circle),
             label: 'Today',
           ),
-
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.calendar),
             label: 'Calendar',
           ),
-
           BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.gear),
             label: 'Settings',
@@ -2108,8 +2177,14 @@ class _CalendarMonthState
 
 class SettingsPage extends StatelessWidget {
 
-  const SettingsPage({super.key});
+  final bool isDarkMode;
+  final VoidCallback onThemeChanged;
 
+  const SettingsPage({
+    super.key,
+    required this.isDarkMode,
+    required this.onThemeChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2250,9 +2325,9 @@ class SettingsPage extends StatelessWidget {
                       'Appearance',
 
                   value:
-                      'Light',
-
-                  onTap: () {},
+                      isDarkMode ? 'Dark' : 'Light',
+                      
+                      onTap: onThemeChanged,
                 ),
 
                 const Divider(
